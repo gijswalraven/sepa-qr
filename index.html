@@ -436,6 +436,42 @@
     return c.toDataURL('image/png');
   }
 
+  // zolang de gegevens niet kloppen: een bewust onbruikbare, vervaagde QR in dezelfde kaart
+  function drawInvalid(r) {
+    var c = document.createElement('canvas');
+    c.width = CAP.w; c.height = CAP.h;
+    var g = c.getContext('2d');
+    var sans = '"Familjen Grotesk", system-ui, Arial, sans-serif';
+    g.fillStyle = '#fff'; g.fillRect(0, 0, CAP.w, CAP.h);
+
+    var qr = qrcode(0, 'M');
+    qr.addData('Vul eerst alle gegevens in');
+    qr.make();
+    var n = qr.getModuleCount();
+    var cell = Math.floor(CAP.w / (n + 8));
+    var off = Math.floor((CAP.w - cell * n) / 2);
+    g.fillStyle = '#d3dad5';
+    for (var y = 0; y < n; y++) {
+      for (var x = 0; x < n; x++) {
+        if (qr.isDark(y, x)) g.fillRect(off + x * cell, off + y * cell, cell, cell);
+      }
+    }
+
+    var top = CAP.w;
+    g.fillStyle = '#d5ddd3'; g.fillRect(0, top, CAP.w, 84);
+    g.fillStyle = '#4f6458'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '600 34px ' + sans;
+    g.fillText('Nog niet compleet', CAP.w / 2, top + 44);
+
+    g.textBaseline = 'alphabetic';
+    g.font = '400 28px ' + sans;
+    var msg = (r.errors.name || r.errors.iban) ? 'Vul een naam en een geldig IBAN in.' : 'Controleer de ingevulde gegevens.';
+    wrap(g, msg + ' Pas daarna werkt de QR.', CAP.w - 56, 3).forEach(function (line, i) {
+      g.fillText(line, CAP.w / 2, top + 140 + i * 36);
+    });
+    return c.toDataURL('image/png');
+  }
+
   function fit(g, text, max) {
     if (g.measureText(text).width <= max) return text;
     while (text.length > 1 && g.measureText(text + '…').width > max) text = text.slice(0, -1);
@@ -476,8 +512,11 @@
     });
 
     if (Object.keys(r.errors).length) {
-      $('placeholder').textContent = 'Vul geldige gegevens in om de QR te zien.';
       clearOutput();
+      $('qr').src = drawInvalid(r);
+      $('qr').alt = 'Nog geen geldige QR: vul de gegevens in.';
+      $('qr').style.display = 'block';
+      $('placeholder').style.display = 'none';
       return;
     }
 
