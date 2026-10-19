@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SEPA QR-generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #d5ddd3;
+    --paper: #f8f9f4;
+    --ink: #14281f;
+    --muted: #4f6458;
+    --rule: #2f6b50;
+    --field: rgba(47, 107, 80, 0.08);
+    --focus: rgba(244, 194, 13, 0.38);
+    --giro: #f4c20d;
+    --giro-ink: #14281f;
+    --error: #b3261e;
+    --ok: #1d6b3a;
+    --shadow: 0 1px 0 rgba(20, 40, 31, 0.08), 0 18px 40px -18px rgba(20, 40, 31, 0.45);
+    --sans: "Familjen Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --mono: "Azeret Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1511;
+      --paper: #17221c;
+      --ink: #e7efe8;
+      --muted: #9db2a5;
+      --rule: #5fae8a;
+      --field: rgba(95, 174, 138, 0.12);
+      --focus: rgba(244, 194, 13, 0.25);
+      --error: #ff8a80;
+      --ok: #6fd391;
+      --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 18px 40px -18px rgba(0, 0, 0, 0.8);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1511;
+    --paper: #17221c;
+    --ink: #e7efe8;
+    --muted: #9db2a5;
+    --rule: #5fae8a;
+    --field: rgba(95, 174, 138, 0.12);
+    --focus: rgba(244, 194, 13, 0.25);
+    --error: #ff8a80;
+    --ok: #6fd391;
+    --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 18px 40px -18px rgba(0, 0, 0, 0.8);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
+  main { max-width: 920px; margin: 0 auto; padding: clamp(10px, 2.5dvh, 28px) 16px; }
+
+  h1 {
+    font-size: clamp(1.4rem, 5dvh, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 0 0 6px;
+  }
+  .about { margin: 0 0 clamp(10px, 2.5dvh, 22px); }
+  .about summary { padding: 2px 0; }
+  .about p { margin: 6px 0 0; max-width: 74ch; color: var(--muted); font-size: 0.95rem; }
+  .about p strong { color: var(--ink); font-weight: 600; }
+  .foot { margin: clamp(10px, 2dvh, 18px) 0 0; font-size: 0.85rem; color: var(--muted); max-width: 90ch; }
+  .foot a { color: var(--ink); text-underline-offset: 3px; }
+  .foot a:focus-visible { outline: 3px solid var(--giro); outline-offset: 2px; }
+
+  /* de strook */
+  .slip {
+    background: var(--paper);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 780px) {
+    .slip { grid-template-columns: 1.2fr 1fr; }
+  }
+
+  .form { padding: 16px 16px 18px; }
+  @media (min-width: 780px) { .form { padding: clamp(16px, 3.5dvh, 32px) 32px; } }
+
+  .field { margin-bottom: 4px; }
+  .pair { display: grid; gap: 0 20px; grid-template-columns: 1fr; }
+  @media (min-width: 360px) { .pair { grid-template-columns: 8rem 1fr; } }
+
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin: clamp(6px, 1.5dvh, 14px) 0 4px;
+  }
+  .hint { font-weight: 400; color: var(--muted); }
+
+  input, textarea {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 10px;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--field);
+    border: 0;
+    border-bottom: 2px solid var(--rule);
+    border-radius: 2px 2px 0 0;
+    transition: background-color 120ms;
+  }
+  textarea { resize: vertical; line-height: 1.45; }
+  ::placeholder { color: var(--muted); opacity: 0.7; }
+  input:focus-visible, textarea:focus-visible {
+    outline: none;
+    background: var(--focus);
+    border-bottom-color: var(--ink);
+  }
+  input[aria-invalid="true"], textarea[aria-invalid="true"] { border-bottom-color: var(--error); }
+  #amount { font-size: 1.15rem; font-weight: 500; }
+
+  .err { color: var(--error); font-size: 0.85rem; margin-top: 3px; }
+  @media (min-width: 780px) { .err { min-height: 1.2em; } }
+
+  details { margin-top: clamp(6px, 1.5dvh, 14px); }
+  summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.9rem;
+    padding: 6px 0;
+  }
+  summary:focus-visible, button:focus-visible { outline: 3px solid var(--giro); outline-offset: 2px; }
+  summary:hover { color: var(--ink); }
+
+  /* de afscheurstrook */
+  .stub {
+    position: relative;
+    padding: 24px 16px 16px;
+    border-top: 2px dashed var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1.8dvh, 16px);
+  }
+  .stub::before, .stub::after {
+    content: "";
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg);
+  }
+  .stub::before { top: -13px; left: -12px; }
+  .stub::after  { top: -13px; right: -12px; }
+  @media (min-width: 780px) {
+    .stub {
+      border-top: 0;
+      border-left: 2px dashed var(--rule);
+      padding: clamp(16px, 3.5dvh, 32px) 28px;
+    }
+    .stub::before { top: -12px; left: -13px; right: auto; }
+    .stub::after  { top: auto; bottom: -12px; left: -13px; right: auto; }
+  }
+
+  .qrbox {
+    width: clamp(120px, calc((100dvh - var(--reserve)) * 0.667), 300px);
+    max-width: 100%;
+    aspect-ratio: 640 / 960;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 3px;
+    display: grid;
+    place-items: center;
+    outline: 1px solid color-mix(in srgb, var(--rule) 35%, transparent);
+  }
+  #qr { display: none; width: 100%; height: 100%; border-radius: 3px; }
+  #placeholder {
+    color: #4f6458;
+    text-align: center;
+    padding: 24px;
+    font-size: 0.95rem;
+  }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    min-height: 44px;
+    padding: 9px 18px;
+    border: 2px solid var(--ink);
+    border-radius: 3px;
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+  }
+  button.secondary { background: transparent; color: var(--ink); }
+  button:hover:not(:disabled) { background: var(--rule); border-color: var(--rule); color: var(--paper); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  #status { font-size: 0.9rem; color: var(--ok); min-height: 1.3em; margin-top: -8px; }
+
+  pre {
+    margin: 8px 0 0;
+    padding: 10px;
+    background: var(--field);
+    border-radius: 3px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  /* alles op één scherm: hoe lager het scherm, hoe minder eromheen */
+  .stub { --about: 0px; --reserve: calc(360px + var(--about)); }
+  main:has(.about[open]) .stub { --about: 90px; }
+  @media (max-width: 779px) {
+    .stub { --reserve: calc(650px + var(--about)); }
+    main:has(.about[open]) .stub { --about: 190px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>SEPA QR-generator</h1>
+  <details class="about" id="about">
+    <summary>Hoe werkt dit?</summary>
+    <p>Met deze generator maak je een betaal-QR die niet verloopt, anders dan een betaalverzoek. Scan hem met je bank-app en de ontvanger, het bedrag en de omschrijving staan klaar. <strong>Wat je invult verlaat je browser niet.</strong> Er wordt niets verstuurd of opgeslagen.</p>
+  </details>
+
+  <div class="slip">
+    <section class="form" aria-label="Betaalgegevens">
+      <div class="field">
+        <label for="name">Naam ontvanger <span class="hint">(max. 70 tekens)</span></label>
+        <input id="name" type="text" maxlength="70" autocomplete="off" placeholder="Voor- en achternaam">
+        <div class="err" id="err-name"></div>
+      </div>
+
+      <div class="field">
+        <label for="iban">IBAN</label>
+        <input id="iban" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NL00 BANK 0000 0000 00">
+        <div class="err" id="err-iban"></div>
+      </div>
+
+      <div class="pair">
+        <div class="field">
+          <label for="amount">Bedrag in euro <span class="hint">(optioneel)</span></label>
+          <input id="amount" type="text" inputmode="decimal" autocomplete="off" value="5,00">
+          <div class="err" id="err-amount"></div>
+        </div>
+        <div class="field">
+          <label for="desc">Omschrijving <span class="hint">(max. 140 tekens)</span></label>
+          <textarea id="desc" rows="2" maxlength="140">Sauna 1 persoon</textarea>
+          <div class="err" id="err-desc"></div>
+        </div>
+      </div>
+
+      <details>
+        <summary>Extra opties</summary>
+        <div class="field">
+          <label for="bic">BIC <span class="hint">(optioneel, bij SEPA niet meer nodig)</span></label>
+          <input id="bic" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="11">
+          <div class="err" id="err-bic"></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="stub" aria-label="QR-code">
+      <div class="qrbox">
+        <div id="placeholder">Vul geldige gegevens in om de QR te zien.</div>
+        <img id="qr" alt="SEPA betaal-QR">
+      </div>
+      <div class="row">
+        <button id="download" type="button">Bewaar afbeelding</button>
+        <button class="secondary" id="copy" type="button">Kopieer QR-tekst</button>
+      </div>
+      <div id="status" role="status"></div>
+      <details>
+        <summary>Inhoud van de QR</summary>
+        <pre id="payload"></pre>
+      </details>
+    </section>
+  </div>
+  <p class="foot">Wil je deze pagina lenen, bewaren of de code inzien? <a href="#" id="zip">Download als zip</a>. Alleen de lettertypen en de QR-bibliotheek komen van internet, jouw gegevens niet.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+(function () {
+  // pagina zoals geladen, vóór er iets is ingevuld of getekend
+  var SOURCE = '<!DOCTYPE html>' + String.fromCharCode(10) + document.documentElement.outerHTML;
+  var $ = function (id) { return document.getElementById(id); };
+  var fields = ['name', 'iban', 'amount', 'desc', 'bic'];
+  var currentPayload = '';
+  var currentPng = '';
+  var touched = {};
+
+  // EPC-QR gebruikt UTF-8 (teken 1 in de kop)
+  try {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  } catch (e) { /* valt terug op standaardcodering */ }
+
+  function ibanValid(iban) {
+    if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+    var s = iban.slice(4) + iban.slice(0, 4);
+    var rem = 0;
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      var v = /[A-Z]/.test(c) ? (c.charCodeAt(0) - 55).toString() : c;
+      for (var j = 0; j < v.length; j++) {
+        rem = (rem * 10 + parseInt(v.charAt(j), 10)) % 97;
+      }
+    }
+    return rem === 1;
+  }
+
+  function clean(s) {
+    // regeleinden zouden de velden van het EPC-formaat verstoren
+    return s.replace(/[\r\n]+/g, ' ').trim();
+  }
+
+  function groupIban(iban) {
+    return iban.replace(/(.{4})/g, '$1 ').trim();
+  }
+
+  function build() {
+    var errors = {};
+    var name = clean($('name').value);
+    var iban = $('iban').value.replace(/\s+/g, '').toUpperCase();
+    var amountRaw = $('amount').value.replace(/\s+/g, '').replace(',', '.');
+    var desc = clean($('desc').value);
+    var bic = $('bic').value.replace(/\s+/g, '').toUpperCase();
+
+    if (!name) errors.name = 'Naam is verplicht.';
+    else if (name.length > 70) errors.name = 'Maximaal 70 tekens.';
+
+    if (!iban) errors.iban = 'IBAN is verplicht.';
+    else if (!ibanValid(iban)) errors.iban = 'Dit IBAN lijkt niet te kloppen.';
+
+    var amountStr = '';
+    if (amountRaw) {
+      if (!/^\d+(\.\d{1,2})?$/.test(amountRaw)) {
+        errors.amount = 'Gebruik een bedrag als 12,50.';
+      } else {
+        var n = parseFloat(amountRaw);
+        if (n < 0.01 || n > 999999999.99) errors.amount = 'Bedrag moet tussen 0,01 en 999.999.999,99 liggen.';
+        else amountStr = 'EUR' + n.toFixed(2);
+      }
+    }
+
+    if (desc.length > 140) errors.desc = 'Maximaal 140 tekens.';
+
+    if (bic && !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(bic)) errors.bic = 'Ongeldige BIC.';
+
+    var lines = [
+      'BCD',        // servicetag
+      '002',        // versie
+      '1',          // codering: UTF-8
+      'SCT',        // SEPA Credit Transfer
+      bic,          // BIC (optioneel)
+      name,
+      iban,
+      amountStr,
+      '',           // purpose
+      '',           // gestructureerde referentie
+      desc          // vrije omschrijving
+    ];
+    return { errors: errors, payload: lines.join('\n'), name: name, iban: iban, amount: amountStr, desc: desc };
+  }
+
+  var CAP = { w: 640, h: 960 };
+
+  // QR + leesbare tekst in één PNG, zodat de betekenis meegaat bij bewaren of delen
+  function drawCard(qr, r) {
+    var c = document.createElement('canvas');
+    c.width = CAP.w; c.height = CAP.h;
+    var g = c.getContext('2d');
+    var sans = '"Familjen Grotesk", system-ui, Arial, sans-serif';
+    var mono = '"Azeret Mono", ui-monospace, Consolas, monospace';
+    g.fillStyle = '#fff'; g.fillRect(0, 0, CAP.w, CAP.h);
+
+    var n = qr.getModuleCount();
+    var cell = Math.floor(CAP.w / (n + 8));
+    var off = Math.floor((CAP.w - cell * n) / 2);
+    g.fillStyle = '#000';
+    for (var y = 0; y < n; y++) {
+      for (var x = 0; x < n; x++) {
+        if (qr.isDark(y, x)) g.fillRect(off + x * cell, off + y * cell, cell, cell);
+      }
+    }
+
+    var top = CAP.w;
+    g.fillStyle = '#f4c20d'; g.fillRect(0, top, CAP.w, 84);
+    g.fillStyle = '#14281f'; g.textBaseline = 'middle'; g.textAlign = 'center';
+    if (r.amount) {
+      g.font = '500 48px ' + mono;
+      g.fillText('€ ' + r.amount.slice(3).replace('.', ','), CAP.w / 2, top + 44);
+    } else {
+      g.font = '600 34px ' + sans;
+      g.fillText('Bedrag vrij te kiezen', CAP.w / 2, top + 44);
+    }
+
+    g.textBaseline = 'alphabetic';
+    g.textAlign = 'left';
+    g.font = '700 34px ' + sans;
+    g.fillText(fit(g, r.name, CAP.w - 56), 28, top + 140);
+    g.font = '500 26px ' + mono;
+    g.fillText(groupIban(r.iban), 28, top + 184);
+    if (r.desc) {
+      g.font = '600 30px ' + sans;
+      var lines = wrap(g, r.desc, CAP.w - 56, 2);
+      var barTop = top + 212;
+      g.fillStyle = '#2f6b50';
+      g.fillRect(0, barTop, CAP.w, lines.length * 38 + 24);
+      g.fillStyle = '#fff';
+      g.textAlign = 'center';
+      lines.forEach(function (line, i) {
+        g.fillText(line, CAP.w / 2, barTop + 40 + i * 38);
+      });
+    }
+    return c.toDataURL('image/png');
+  }
+
+  function fit(g, text, max) {
+    if (g.measureText(text).width <= max) return text;
+    while (text.length > 1 && g.measureText(text + '…').width > max) text = text.slice(0, -1);
+    return text + '…';
+  }
+
+  function wrap(g, text, max, maxLines) {
+    var words = text.split(' '), lines = [], line = '';
+    for (var i = 0; i < words.length; i++) {
+      var t = line ? line + ' ' + words[i] : words[i];
+      if (g.measureText(t).width <= max || !line) line = t;
+      else { lines.push(line); line = words[i]; }
+    }
+    lines.push(line);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      lines[maxLines - 1] = fit(g, lines[maxLines - 1] + '…', max);
+    }
+    return lines.map(function (l) { return fit(g, l, max); });
+  }
+
+  function clearOutput() {
+    $('qr').style.display = 'none';
+    $('placeholder').style.display = 'block';
+    $('download').disabled = true;
+    currentPng = '';
+    $('payload').textContent = '';
+    $('copy').disabled = true;
+    currentPayload = '';
+  }
+
+  function render() {
+    var r = build();
+    fields.forEach(function (f) {
+      var show = r.errors[f] && (touched[f] || $(f).value !== '');
+      $('err-' + f).textContent = show ? r.errors[f] : '';
+      $(f).setAttribute('aria-invalid', show ? 'true' : 'false');
+    });
+
+    if (Object.keys(r.errors).length) {
+      $('placeholder').textContent = 'Vul geldige gegevens in om de QR te zien.';
+      clearOutput();
+      return;
+    }
+
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(r.payload);
+      qr.make();
+      currentPng = drawCard(qr, r);
+      $('qr').src = currentPng;
+      $('qr').alt = 'SEPA betaal-QR voor ' + r.name + ', ' + groupIban(r.iban) +
+        (r.amount ? ', € ' + r.amount.slice(3).replace('.', ',') : '') + (r.desc ? ', ' + r.desc : '');
+      $('qr').style.display = 'block';
+      $('placeholder').style.display = 'none';
+      currentPayload = r.payload;
+      $('copy').disabled = false;
+      $('download').disabled = false;
+      $('payload').textContent = r.payload;
+    } catch (e) {
+      $('placeholder').textContent = 'De QR kon niet worden gemaakt: te veel tekst.';
+      clearOutput();
+    }
+  }
+
+  fields.forEach(function (f) {
+    $(f).addEventListener('input', render);
+    $(f).addEventListener('blur', function () { touched[f] = true; render(); });
+  });
+
+  // IBAN netjes in groepjes van vier zodra je het veld verlaat
+  $('iban').addEventListener('blur', function () {
+    var v = this.value.replace(/\s+/g, '').toUpperCase();
+    if (v) this.value = groupIban(v);
+  });
+
+  $('copy').addEventListener('click', function () {
+    if (!currentPayload) return;
+    var done = function (ok) {
+      $('status').textContent = ok ? 'Gekopieerd.' : 'Kopiëren lukte niet.';
+      setTimeout(function () { $('status').textContent = ''; }, 2000);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(currentPayload).then(function () { done(true); }, function () { done(false); });
+    } else {
+      done(false);
+    }
+  });
+
+  $('download').addEventListener('click', function () {
+    if (!currentPng) return;
+    var a = document.createElement('a');
+    a.href = currentPng;
+    a.download = 'sepa-qr.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  // lettertypen kunnen later laden dan de eerste tekening
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+
+  // zip zonder bibliotheek: één bestand, onversleuteld opgeslagen
+  function crc32(bytes) {
+    var table = crc32.t;
+    if (!table) {
+      table = crc32.t = [];
+      for (var n = 0; n < 256; n++) {
+        var c = n;
+        for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        table[n] = c >>> 0;
+      }
+    }
+    var crc = 0xffffffff;
+    for (var i = 0; i < bytes.length; i++) crc = table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function makeZip(fileName, text) {
+    var enc = new TextEncoder();
+    var name = enc.encode(fileName), data = enc.encode(text);
+    var d = new Date();
+    var time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    var date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    var crc = crc32(data);
+    var local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(6, 0x0800, true);
+    local.setUint16(8, 0, true); local.setUint16(10, time, true); local.setUint16(12, date, true);
+    local.setUint32(14, crc, true); local.setUint32(18, data.length, true); local.setUint32(22, data.length, true);
+    local.setUint16(26, name.length, true); local.setUint16(28, 0, true);
+    var cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true);
+    cen.setUint16(8, 0x0800, true); cen.setUint16(10, 0, true); cen.setUint16(12, time, true); cen.setUint16(14, date, true);
+    cen.setUint32(16, crc, true); cen.setUint32(20, data.length, true); cen.setUint32(24, data.length, true);
+    cen.setUint16(28, name.length, true);
+    var cenSize = 46 + name.length, cenOffset = 30 + name.length + data.length;
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true);
+    end.setUint32(12, cenSize, true); end.setUint32(16, cenOffset, true);
+    return new Blob([local, name, data, cen, name, end], { type: 'application/zip' });
+  }
+
+  $('zip').addEventListener('click', function (e) {
+    e.preventDefault();
+    var url = URL.createObjectURL(makeZip('SEPA-QR-generator.html', SOURCE));
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'sepa-qr-generator.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+
+  // uitleg open waar het scherm ruim genoeg is
+  if (window.matchMedia) $('about').open = window.matchMedia('(min-width: 780px) and (min-height: 700px)').matches;
+
+  render();
+})();
+</script>
+</body>
+</html>
