@@ -253,7 +253,7 @@
 
       <div class="field">
         <label for="iban">IBAN</label>
-        <input id="iban" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NL00 BANK 0000 0000 00">
+        <input id="iban" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="42" placeholder="NL00 BANK 0000 0000 00">
         <div class="err" id="err-iban"></div>
       </div>
 
@@ -543,6 +543,39 @@
   fields.forEach(function (f) {
     $(f).addEventListener('input', render);
     $(f).addEventListener('blur', function () { touched[f] = true; render(); });
+  });
+
+  // IBAN-masker: landcode (2 letters), controlegetal (2 cijfers), daarna per positie
+  // wat past; voor NL: 4 letters (bank) en 10 cijfers. Andere tekens worden genegeerd.
+  function ibanClean(raw) {
+    var out = '';
+    raw = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    for (var i = 0; i < raw.length; i++) {
+      var ch = raw.charAt(i), pos = out.length, letter = /[A-Z]/.test(ch), digit = /[0-9]/.test(ch);
+      var ok;
+      if (pos < 2) ok = letter;
+      else if (pos < 4) ok = digit;
+      else if (out.slice(0, 2) === 'NL') ok = pos < 8 ? letter : (pos < 18 && digit);
+      else ok = pos < 34;
+      if (ok) out += ch;
+    }
+    return out;
+  }
+
+  $('iban').addEventListener('input', function () {
+    var el = this;
+    var caret = el.selectionStart;
+    var before = ibanClean(el.value.slice(0, caret)).length;
+    var grouped = groupIban(ibanClean(el.value));
+    if (grouped === el.value) return;
+    el.value = grouped;
+    var idx = 0, seen = 0;
+    while (idx < grouped.length && seen < before) {
+      if (grouped.charAt(idx) !== ' ') seen++;
+      idx++;
+    }
+    if (grouped.charAt(idx) === ' ' && seen === before && before % 4 === 0) idx++;
+    el.setSelectionRange(idx, idx);
   });
 
   // IBAN netjes in groepjes van vier zodra je het veld verlaat
